@@ -1,0 +1,42 @@
+name: PR Title
+
+# PR タイトルが Conventional Commits 形式かを検査する。
+# squash merge では PR タイトルがそのまま main のコミットメッセージになるため、
+# ここを押さえておけば main の履歴が一貫した形式に保たれる。
+on:
+  pull_request_target:
+    # edited を含めることで、タイトル修正時に再検査が走る
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    name: Check Conventional Commits format
+    runs-on: ubuntu-latest
+    steps:
+      # PR タイトルは外部から任意の文字列を入れられるため、
+      # ${{ }} を run: 内へ直接展開せず env 経由で渡すこと（シェルインジェクション対策）
+      - name: Validate title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|refactor|test|chore|perf|ci|build)(\([a-z0-9._/-]+\))?!?: .+'
+          if printf '%s' "$TITLE" | grep -qE "$pattern"; then
+            echo "OK: $TITLE"
+            exit 0
+          fi
+          echo "::error::PR title must follow Conventional Commits."
+          echo ""
+          echo "  Received: $TITLE"
+          echo "  Expected: <type>(<scope>): <subject>"
+          echo ""
+          echo "  type:    feat | fix | docs | refactor | test | chore | perf | ci | build"
+          echo "  scope:   optional, e.g. (api), (store), (deps)"
+          echo "  subject: English, imperative mood, lowercase, no trailing period"
+          echo ""
+          echo "  Example: feat(api): add short code resolution endpoint"
+          echo ""
+          echo "See https://www.conventionalcommits.org/ for the full specification."
+          exit 1
