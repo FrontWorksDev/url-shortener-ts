@@ -38,6 +38,16 @@ Linter / Formatter は未導入。導入する場合は Bun エコシステム�
 
 `main` では作業しない。ファイル編集の前に `git branch --show-current` で確認し、`main` にいれば `git switch -c <type>/<説明>`（例: `feat/short-code-resolution`）でブランチを切る。type はコミットの type と同じ語彙を使う。`main` の更新は PR の squash merge 経由のみ。
 
+## 個人開発の学習ポリシー
+
+このプロジェクトは学習目的です。以下のルールを厳守してください。
+
+- 実装コードを書いてはいけない。私が書いたコードをレビューするだけに徹すること。
+- 「動くから良い」ではなく、その言語(Go/TypeScript)らしい書き方になっているかを厳しく見ること。
+- 指摘は具体的に。「なぜ問題か」「その言語のベストプラクティスではどう書くか」までセットで説明すること。
+- 修正コードそのものを書いて提示しないこと。考え方のヒントまでに留め、実装は私に書かせること。
+- 褒めるだけで終わらせない。妥協せず、シニアエンジニアが新人のPRを見るレベルの厳しさで指摘すること。
+
 ## コミットメッセージ
 
 [Conventional Commits](https://www.conventionalcommits.org/) に従う。**1 行目（subject）は英語**、body は日本語でもよい。subject は GitHub のコミット一覧・`git blame`・release notes に露出するため英語で揃え、body は設計判断の理由を正確に書くことを優先する。
