@@ -23,7 +23,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: .bun-version
+          bun-version-file: .tool-versions
 
       - name: Cache bun dependencies
         uses: actions/cache@v4
