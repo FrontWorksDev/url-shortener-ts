@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Bun + Hono による URL 短縮サービス。**現時点ではスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジック、永続化層、テストはいずれも未実装。
+Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジック、永続化層、テストはいずれも未実装。一方で開発フロー側（型チェック・Git フック・CI）は整備済み。
 
 ## コマンド
 
 セットアップと起動は README.md を参照。README に載っていないもの：
 
 ```sh
-bunx tsc --noEmit        # 型チェック（package.json にスクリプト未定義のため直接実行）
+bun run typecheck   # tsc --noEmit。pre-push フックと CI で同じものが走る
 ```
 
 テストは Bun 標準のテストランナー（`bun:test`）を前提とする。テストファイル追加後は以下で実行する。
@@ -25,7 +25,28 @@ bun test --watch                     # ウォッチモード
 
 パッケージマネージャは **Bun**（`bun.lock` を使用。npm / yarn / pnpm は使わない）。
 
-Linter / Formatter は未導入。導入する場合は Bun エコシステムと相性の良い Biome や oxlint を検討し、`package.json` の `scripts` に登録したうえで本ファイルを更新すること。
+Linter / Formatter は未導入。導入する場合は Bun エコシステムと相性の良い Biome や oxlint を検討し、`package.json` の `scripts` に登録したうえで本ファイルを更新すること。その際は pre-push フック（`lefthook.yml`）と CI にも同じコマンドを追加し、ローカルと CI の判定を一致させること。
+
+## 品質ゲート
+
+型チェックは **ローカル（pre-push）と CI の二重**で走る。どちらも実体は `bun run typecheck` の一本。
+
+- **Git フック**: [lefthook](https://github.com/evilmartians/lefthook) を使用。`lefthook.yml` の `pre-push` ジョブで typecheck を実行する。フックは `package.json` の `prepare` スクリプト（`lefthook install`）により `bun install` 時に自動で貼られるため、手動インストールは不要。
+- **CI**: `.github/workflows/typecheck.yml` が `main` への push と PR で typecheck を実行する。`bun install --frozen-lockfile --ignore-scripts` を使うため CI 側では `prepare` が走らない（CI に Git フックは不要なので意図的）。
+- **PR タイトル検査**: `.github/workflows/pr-title.yml` が PR タイトルの Conventional Commits 形式を正規表現で検査する。後述の「プルリクエスト」の規約は CI で強制されるので、形式を外すとマージできない。
+
+依存はバージョンを固定している（`typescript` / `@types/bun` はキャレットなしの完全固定）。ローカルと CI でツールチェインがずれると、手元で通った型チェックが CI で落ちる／その逆が起きて、型チェック自体が信用できなくなるため。
+
+Bun のバージョンは **2 箇所**にある。**上げるときは必ず同時に上げること。**
+
+| 場所 | 対象 |
+| --- | --- |
+| `.bun-version` | Bun ランタイム。ローカルと、CI（`setup-bun` の `bun-version-file`）の双方が参照する |
+| `package.json` の `@types/bun` | Bun の型定義 |
+
+CI のワークフローにバージョンを直書きしないこと。`.bun-version` との二重管理になり、片方だけ上げたときにローカルと CI の型チェック結果が食い違う。
+
+TypeScript は 7.x（ネイティブ実装版）を使用。`bunx tsc` ではなく devDependencies の `tsc` を `bun run typecheck` 経由で呼ぶこと。
 
 ## アーキテクチャ
 
@@ -86,7 +107,7 @@ Closes #12
 
 ## プルリクエスト
 
-タイトルはコミットと同じ Conventional Commits 形式。本文は `.github/PULL_REQUEST_TEMPLATE.md` に従う（PR 作成時に GitHub が自動展開する）。
+タイトルはコミットと同じ Conventional Commits 形式で、**`pr-title.yml` が CI で検査する**（squash merge では PR タイトルがそのまま `main` のコミットメッセージになるため）。本文は `.github/PULL_REQUEST_TEMPLATE.md` に従う（PR 作成時に GitHub が自動展開する）。
 
 - PR は 1 つの目的に絞り、レビュー可能なサイズを保つ
 - 未完成のものは Draft PR として開く
