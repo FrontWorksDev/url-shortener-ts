@@ -25,28 +25,16 @@ bun test --watch                     # ウォッチモード
 
 パッケージマネージャは **Bun**（`bun.lock` を使用。npm / yarn / pnpm は使わない）。
 
-Linter / Formatter は未導入。導入する場合は Bun エコシステムと相性の良い Biome や oxlint を検討し、`package.json` の `scripts` に登録したうえで本ファイルを更新すること。その際は pre-push フック（`lefthook.yml`）と CI にも同じコマンドを追加し、ローカルと CI の判定を一致させること。
+Linter / Formatter は未導入。導入する場合は Bun エコシステムと相性の良い Biome や oxlint を検討し、`package.json` の `scripts` に登録したうえで本ファイルを更新すること。
 
 ## 品質ゲート
 
-型チェックは **ローカル（pre-push）と CI の二重**で走る。どちらも実体は `bun run typecheck` の一本。
+型チェックは `bun run typecheck` の一本。同じコマンドを pre-push フック（`lefthook.yml`）と CI（`.github/workflows/typecheck.yml`）が呼ぶ。
 
-- **Git フック**: [lefthook](https://github.com/evilmartians/lefthook) を使用。`lefthook.yml` の `pre-push` ジョブで typecheck を実行する。フックは `package.json` の `prepare` スクリプト（`lefthook install`）により `bun install` 時に自動で貼られるため、手動インストールは不要。
-- **CI**: `.github/workflows/typecheck.yml` が `main` への push と PR で typecheck を実行する。`bun install --frozen-lockfile --ignore-scripts` を使うため CI 側では `prepare` が走らない（CI に Git フックは不要なので意図的）。
-- **PR タイトル検査**: `.github/workflows/pr-title.yml` が PR タイトルの Conventional Commits 形式を正規表現で検査する。後述の「プルリクエスト」の規約は CI で強制されるので、形式を外すとマージできない。
-
-依存はバージョンを固定している（`typescript` / `@types/bun` はキャレットなしの完全固定）。ローカルと CI でツールチェインがずれると、手元で通った型チェックが CI で落ちる／その逆が起きて、型チェック自体が信用できなくなるため。
-
-Bun のバージョンは **2 箇所**にある。**上げるときは必ず同時に上げること。**
-
-| 場所 | 対象 |
-| --- | --- |
-| `.bun-version` | Bun ランタイム。ローカルと、CI（`setup-bun` の `bun-version-file`）の双方が参照する |
-| `package.json` の `@types/bun` | Bun の型定義 |
-
-CI のワークフローにバージョンを直書きしないこと。`.bun-version` との二重管理になり、片方だけ上げたときにローカルと CI の型チェック結果が食い違う。
-
-TypeScript は 7.x（ネイティブ実装版）を使用。`bunx tsc` ではなく devDependencies の `tsc` を `bun run typecheck` 経由で呼ぶこと。
+- `bunx tsc` を直接叩かない。devDependencies の TypeScript（7.x のネイティブ実装版）を使うため、`bun run typecheck` 経由にする。
+- チェックを追加するときは `package.json` の `scripts`・`lefthook.yml`・CI ワークフローの 3 箇所に同じコマンドを登録する。
+- Bun 本体のバージョンは `.tool-versions`、型定義は `package.json` の `@types/bun`。**片方だけ上げない**（ローカルと CI で型チェック結果がずれる）。ワークフローにバージョンを直書きしない。
+- PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。
 
 ## アーキテクチャ
 
