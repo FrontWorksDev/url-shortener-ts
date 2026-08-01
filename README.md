@@ -30,9 +30,13 @@ The Bun version lives in two places. Bump them together, never one at a time.
 
 | Where | What |
 | --- | --- |
-| `.tool-versions` | Bun runtime — read by asdf/mise locally, and by CI via `bun-version-file` |
+| `.tool-versions` | Bun runtime — read by asdf/mise locally, and by CI |
 | `package.json` (`@types/bun`) | Bun type definitions |
 
 `.tool-versions` uses the asdf format (`bun 1.3.14`). To have it pin your local runtime, install
 Bun through [asdf](https://asdf-vm.com/) or [mise](https://mise.jdx.dev/) — Bun itself does not
 read the file.
+
+CI reads the `bun` line from `.tool-versions`, installs that exact version, and then fails if the
+version it actually resolved differs. A missing or malformed `bun` line fails the job instead of
+silently falling back to the latest release.

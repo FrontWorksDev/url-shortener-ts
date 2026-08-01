@@ -20,10 +20,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Resolve expected Bun version from .tool-versions
+        id: expected-bun
+        run: |
+          VERSION=$(awk '$1 == "bun" { print $2; exit }' .tool-versions)
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not find 'bun' entry in .tool-versions"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Setup Bun
+        id: setup-bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: .tool-versions
+          bun-version: ${{ steps.expected-bun.outputs.version }}
+
+      - name: Verify resolved Bun version matches .tool-versions
+        env:
+          EXPECTED: ${{ steps.expected-bun.outputs.version }}
+          ACTUAL: ${{ steps.setup-bun.outputs.bun-version }}
+        run: |
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Bun version mismatch: expected $EXPECTED, got $ACTUAL"
+            exit 1
+          fi
+          echo "Bun version verified: $ACTUAL"
 
       - name: Cache bun dependencies
         uses: actions/cache@v4
