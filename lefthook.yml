@@ -1,0 +1,4 @@
+pre-push:
+  jobs:
+    - name: TypeCheck
+      run: bun run typecheck

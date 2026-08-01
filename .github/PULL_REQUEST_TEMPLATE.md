@@ -18,7 +18,7 @@
 ## How Has This Been Tested?
 
 - [ ] `bun test`
-- [ ] `bunx tsc --noEmit`
+- [ ] `bun run typecheck`
 - [ ] 手動確認: <!-- 再現可能な手順を記載 -->
 
 ## Breaking Changes
