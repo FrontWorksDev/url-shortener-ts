@@ -2,7 +2,8 @@
   "name": "url-shortener-ts",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "hono": "^4.12.32"
