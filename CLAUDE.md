@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジック、永続化層、テストはいずれも未実装。一方で開発フロー側（型チェック・Git フック・CI）は整備済み。
+Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジック、永続化層、テストはいずれも未実装。一方で開発フロー側（型チェック・Lint / Format・Git フック・CI）は整備済み。
 
 ## コマンド
 
@@ -25,15 +25,34 @@ bun test --watch                     # ウォッチモード
 
 パッケージマネージャは **Bun**（`bun.lock` を使用。npm / yarn / pnpm は使わない）。
 
-Linter / Formatter は未導入。導入する場合は Bun エコシステムと相性の良い Biome や oxlint を検討し、`package.json` の `scripts` に登録したうえで本ファイルを更新すること。
+Linter / Formatter は **Biome**（設定は `biome.json`）。`check` が formatter・linter・assist（import 並べ替え、キー並べ替え）をまとめて走らせる統合コマンドで、通常はこれを使う。
+
+```sh
+bun run check        # 検査のみ（formatter + linter + assist）
+bun run check:fix    # 上記を自動修正まで行う
+bun run format       # フォーマットのみ（書き込みは format:fix）
+bun run lint         # Lint のみ（書き込みは lint:fix）
+```
+
+- 対象は `biome.json` の `files.includes`（`src/**` とルート直下の設定 JSON）。パス引数は不要で、渡せばその範囲に絞れる（例: `bun run check src/index.ts`）。
+- `bunx biome` を直接叩かない。`@biomejs/biome` は `2.5.6` に完全固定してあるため、`bun run` 経由にする。
+- バージョンを上げるときは `package.json` の `@biomejs/biome` と `biome.json` の `$schema` URL を**必ず一緒に**上げる。`$schema` はエディタ補完用で実行には影響しないため、古いまま放置すると補完だけ別バージョンを指す。
 
 ## 品質ゲート
 
-型チェックは `bun run typecheck` の一本。同じコマンドを pre-push フック（`lefthook.yml`）と CI（`.github/workflows/typecheck.yml`）が呼ぶ。
+ゲートは型チェックと Biome の 2 本。どちらも pre-push フック（`lefthook.yml`、`parallel: true` で並走）と CI が呼ぶ。
 
+| ゲート | ローカル / pre-push | CI |
+| --- | --- | --- |
+| 型チェック | `bun run typecheck` | `.github/workflows/typecheck.yml`（`bun run typecheck`） |
+| Lint / Format / assist | `bun run check` | `.github/workflows/biome.yml`（`bun run check:ci`） |
+
+- CI だけ `check:ci`（`biome ci .`）を使う。ルールセットも対象ファイル（`src/index.ts`・`package.json`・`biome.json`・`tsconfig.json` の 4 つ）も終了コードも `check` と同じで、違いは 2 つ — `--write` を受け付けないことと、GitHub Actions 上で `::error` アノテーションを出して PR の diff にインライン表示されること。CI が落ちたらローカルの `bun run check` で再現し、`bun run check:fix` で直す。
+- どちらのゲートも CI では `bun install --frozen-lockfile --ignore-scripts` で入れた依存を使う。`--ignore-scripts` は `prepare`（`lefthook install`）を CI で走らせないため。
 - `bunx tsc` を直接叩かない。devDependencies の TypeScript（7.x のネイティブ実装版）を使うため、`bun run typecheck` 経由にする。
-- チェックを追加するときは `package.json` の `scripts`・`lefthook.yml`・CI ワークフローの 3 箇所に同じコマンドを登録する。
-- Bun 本体のバージョンは `.tool-versions`、型定義は `package.json` の `@types/bun`。**片方だけ上げない**（ローカルと CI で型チェック結果がずれる）。ワークフローにバージョンを直書きしない。
+- チェックを追加するときは `package.json` の `scripts`・`lefthook.yml`・CI ワークフローの 3 箇所に同じコマンドを登録する。`scripts` だけに置くと「あるのに走らない」チェックになる。
+- Bun 本体のバージョンは `.tool-versions`、型定義は `package.json` の `@types/bun`。**片方だけ上げない**（ローカルと CI で型チェック結果がずれる）。
+- **ワークフローにバージョンを直書きしない。** Bun は `typecheck.yml` / `biome.yml` の両方が `.tool-versions` から解決して実際の値を検証する。Biome は `bun install` 経由で入るため `package.json` が唯一の源になる。CI 用にツールを別インストールする（`setup-*` アクションでバージョンを指定するなど）と源が二重化するので避ける。
 - PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。
 
 ## アーキテクチャ
@@ -41,7 +60,8 @@ Linter / Formatter は未導入。導入する場合は Bun エコシステム�
 - **エントリポイント**: `src/index.ts` が Hono アプリを `export default` する。Bun はこの default export（`fetch` ハンドラを持つオブジェクト）を自動で HTTP サーバとして起動するため、`Bun.serve()` の明示的な呼び出しやポート指定のコードは存在しない。ポートを変更する場合は `export default { port, fetch: app.fetch }` の形に切り替える。
 - **ランタイム API**: Node.js ではなく Bun のランタイム API（`Bun.file`、`bun:sqlite` など）を第一候補とする。`tsconfig.json` の `types: ["bun"]` により Bun のグローバル型のみが有効で、Node の型は入っていない。
 - **JSX**: `jsxImportSource: "hono/jsx"` が設定済み。UI を追加する場合は React ではなく Hono JSX（`hono/jsx`）を使う。React 用のパッケージを入れないこと。
-- **strict モード**: TypeScript は `strict: true`。`any` や非 null アサーション（`!`）に頼らず、型で表現する。
+- **strict モード**: TypeScript は `strict: true`。`any` や非 null アサーション（`!`）に頼らず、型で表現する。Biome 側も `noExplicitAny` を error、`noNonNullAssertion` を warn として重ねている（テストファイルのみ `noExplicitAny` を無効化）。`import type` の使い分け（`useImportType`）と `node:` プレフィックス（`useNodejsImportProtocol`）も error。
+- **コードスタイル**: フォーマットの決定は `biome.json` に集約されている（シングルクォート、セミコロンあり、幅 120、インデント 2 スペース、trailing comma は es5）。手で整えず `bun run check:fix` に任せる。
 
 ## ブランチ運用
 
