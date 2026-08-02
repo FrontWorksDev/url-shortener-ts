@@ -2,13 +2,9 @@
   "name": "url-shortener-ts",
   "scripts": {
     "check": "biome check",
-    "check:ci": "biome ci .",
+    "check:ci": "biome ci",
     "check:fix": "biome check --write",
     "dev": "bun run --hot src/index.ts",
-    "format": "biome format",
-    "format:fix": "biome format --write",
-    "lint": "biome lint",
-    "lint:fix": "biome lint --write",
     "prepare": "lefthook install",
     "typecheck": "tsc --noEmit"
   },

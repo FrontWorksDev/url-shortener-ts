@@ -4,7 +4,6 @@
     "actions": {
       "source": {
         "organizeImports": "on",
-        "useSortedKeys": "on",
         "useSortedPackageJson": "on"
       }
     },
@@ -12,7 +11,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**", "*.{ts,js}", "*.json", "*.jsonc", "!!**/dist", "!!**/coverage"]
+    "includes": ["src/**", "*.{ts,js}", "*.json", "*.jsonc"]
   },
   "formatter": {
     "enabled": true,
@@ -48,13 +47,13 @@
       },
       "preset": "recommended",
       "style": {
-        "noNonNullAssertion": "warn",
+        "noNonNullAssertion": "error",
         "useImportType": "error",
         "useNamingConvention": "off",
         "useNodejsImportProtocol": "error"
       },
       "suspicious": {
-        "noConsole": "warn",
+        "noConsole": "error",
         "noExplicitAny": "error"
       }
     }
@@ -69,16 +68,6 @@
           }
         }
       }
-    },
-    {
-      "assist": {
-        "actions": {
-          "source": {
-            "useSortedKeys": "off"
-          }
-        }
-      },
-      "includes": ["tsconfig.json", "tsconfig.*.json", "package.json"]
     }
   ],
   "vcs": {
