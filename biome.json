@@ -11,7 +11,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**", "*.{ts,js}", "*.json", "*.jsonc"]
+    "includes": ["src/**/*.{ts,tsx,js,jsx}", "*.{ts,js}", "*.json", "*.jsonc"]
   },
   "formatter": {
     "enabled": true,
@@ -37,7 +37,7 @@
       "a11y": "off",
       "complexity": {
         "noUselessStringConcat": "error",
-        "useSimplifiedLogicExpression": "warn"
+        "useSimplifiedLogicExpression": "error"
       },
       "correctness": {
         "noUnusedVariables": "error"
