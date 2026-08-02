@@ -15,7 +15,6 @@
   },
   "formatter": {
     "enabled": true,
-    "includes": ["src/**/*.{ts,tsx,js,jsx}", "*.{ts,js}", "*.json", "*.jsonc"],
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",

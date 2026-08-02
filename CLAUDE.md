@@ -37,12 +37,7 @@ bun run check:fix    # 上記を自動修正まで行う
 
 ## 品質ゲート
 
-型チェックと Biome の 2 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 2 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
-
-| ゲート | コマンド | CI のチェック名 |
-| --- | --- | --- |
-| 型チェック | `bun run typecheck` | `CI / Type Check` |
-| Lint / Format / assist | `bun run check` | `CI / Biome` |
+型チェック（`bun run typecheck`／CI 上のチェック名は `CI / Type Check`）と Biome（`bun run check`／`CI / Biome`）の 2 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 2 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
 
 - CI だけ `check:ci`（`biome ci`）を使う。ルール・対象ファイル・終了コードは `check` と同じ。CI が落ちたら `bun run check` で再現し、`bun run check:fix` で直す。
 - **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。
@@ -50,7 +45,9 @@ bun run check:fix    # 上記を自動修正まで行う
 - **CI のチェック名を変えたら `main` のブランチ保護の必須チェック設定も直す。** 古い名前を待ち続けてマージ不能になる。
 - **ワークフローにバージョンを直書きしない。** Bun は `.tool-versions`、Biome は `bun install` 経由の `package.json` が唯一の源。`setup-*` アクションでの別インストールは源が二重化するので避ける。
 - `bunx tsc` / `bunx biome` を直接叩かない。固定版を使うため `bun run` 経由にする。
-- Bun 本体（`.tool-versions`）と型定義（`@types/bun`）、Biome（`package.json`）と `biome.json` の `$schema` は、**それぞれ対で上げる**。
+- Bun 本体（`.tool-versions`）と型定義（`package.json` の `@types/bun`）は**対で上げる**。片方だけだとローカルと CI で型チェック結果がずれる。
+- Biome（`package.json` の `@biomejs/biome`）と `biome.json` の `$schema` URL も**対で上げる**。`$schema` はエディタ補完用で実行には一切影響せず、古いバージョンでも存在しないバージョンでも Biome は何も言わずに exit 0 を返す。**ずれが実行時に検知される機会はどこにも無い**ので、「実行に影響しないなら後でいい」「間違っていればエラーになるはず」と判断せず、必ず同時に上げる。
+- Biome を上げた後に `Found an unknown key` で落ちたら、そのルールが `nursery` を卒業した合図。**キーを消して黙らせず、新しいグループへ移す**（消すと適用が静かに失われる）。
 - PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。
 
 ## アーキテクチャ
