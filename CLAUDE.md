@@ -25,34 +25,32 @@ bun test --watch                     # ウォッチモード
 
 パッケージマネージャは **Bun**（`bun.lock` を使用。npm / yarn / pnpm は使わない）。
 
-Linter / Formatter は **Biome**（設定は `biome.json`）。`check` が formatter・linter・assist（import 並べ替え、キー並べ替え）をまとめて走らせる統合コマンドで、通常はこれを使う。
+Linter / Formatter は **Biome**（設定は `biome.json`）。`check` が formatter・linter・assist（import 並べ替え、`package.json` のキー並べ替え）をまとめて走らせる唯一の入口。
 
 ```sh
 bun run check        # 検査のみ（formatter + linter + assist）
 bun run check:fix    # 上記を自動修正まで行う
-bun run format       # フォーマットのみ（書き込みは format:fix）
-bun run lint         # Lint のみ（書き込みは lint:fix）
 ```
 
-- 対象は `biome.json` の `files.includes`（`src/**` とルート直下の設定 JSON）。パス引数は不要で、渡せばその範囲に絞れる（例: `bun run check src/index.ts`）。
-- `bunx biome` を直接叩かない。`@biomejs/biome` は `2.5.6` に完全固定してあるため、`bun run` 経由にする。
-- バージョンを上げるときは `package.json` の `@biomejs/biome` と `biome.json` の `$schema` URL を**必ず一緒に**上げる。`$schema` はエディタ補完用で実行には影響しないため、古いまま放置すると補完だけ別バージョンを指す。
+- **`format` / `lint` のような部分実行スクリプトを増やさない。** 1 種だけ実行したいときは `bun run biome format` のようにその場で叩く。
+- 対象は `biome.json` の `files.includes`（`src/**` とルート直下の設定 JSON）。パス引数を渡せばその範囲に絞れる（例: `bun run check src/index.ts`）。
 
 ## 品質ゲート
 
-ゲートは型チェックと Biome の 2 本。どちらも pre-push フック（`lefthook.yml`、`parallel: true` で並走）と CI が呼ぶ。
+型チェックと Biome の 2 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 2 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
 
-| ゲート | ローカル / pre-push | CI |
+| ゲート | コマンド | CI のチェック名 |
 | --- | --- | --- |
-| 型チェック | `bun run typecheck` | `.github/workflows/typecheck.yml`（`bun run typecheck`） |
-| Lint / Format / assist | `bun run check` | `.github/workflows/biome.yml`（`bun run check:ci`） |
+| 型チェック | `bun run typecheck` | `CI / Type Check` |
+| Lint / Format / assist | `bun run check` | `CI / Biome` |
 
-- CI だけ `check:ci`（`biome ci .`）を使う。ルールセットも対象ファイル（`src/index.ts`・`package.json`・`biome.json`・`tsconfig.json` の 4 つ）も終了コードも `check` と同じで、違いは 2 つ — `--write` を受け付けないことと、GitHub Actions 上で `::error` アノテーションを出して PR の diff にインライン表示されること。CI が落ちたらローカルの `bun run check` で再現し、`bun run check:fix` で直す。
-- どちらのゲートも CI では `bun install --frozen-lockfile --ignore-scripts` で入れた依存を使う。`--ignore-scripts` は `prepare`（`lefthook install`）を CI で走らせないため。
-- `bunx tsc` を直接叩かない。devDependencies の TypeScript（7.x のネイティブ実装版）を使うため、`bun run typecheck` 経由にする。
-- チェックを追加するときは `package.json` の `scripts`・`lefthook.yml`・CI ワークフローの 3 箇所に同じコマンドを登録する。`scripts` だけに置くと「あるのに走らない」チェックになる。
-- Bun 本体のバージョンは `.tool-versions`、型定義は `package.json` の `@types/bun`。**片方だけ上げない**（ローカルと CI で型チェック結果がずれる）。
-- **ワークフローにバージョンを直書きしない。** Bun は `typecheck.yml` / `biome.yml` の両方が `.tool-versions` から解決して実際の値を検証する。Biome は `bun install` 経由で入るため `package.json` が唯一の源になる。CI 用にツールを別インストールする（`setup-*` アクションでバージョンを指定するなど）と源が二重化するので避ける。
+- CI だけ `check:ci`（`biome ci`）を使う。ルール・対象ファイル・終了コードは `check` と同じ。CI が落ちたら `bun run check` で再現し、`bun run check:fix` で直す。
+- **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。
+- **`ci.yml` の `fail-fast: false` と `--ignore-scripts` を外さない。** 前者は片方のエラーで他方が cancel されるのを防ぎ、後者は CI で `prepare`（`lefthook install`）を走らせないため。
+- **CI のチェック名を変えたら `main` のブランチ保護の必須チェック設定も直す。** 古い名前を待ち続けてマージ不能になる。
+- **ワークフローにバージョンを直書きしない。** Bun は `.tool-versions`、Biome は `bun install` 経由の `package.json` が唯一の源。`setup-*` アクションでの別インストールは源が二重化するので避ける。
+- `bunx tsc` / `bunx biome` を直接叩かない。固定版を使うため `bun run` 経由にする。
+- Bun 本体（`.tool-versions`）と型定義（`@types/bun`）、Biome（`package.json`）と `biome.json` の `$schema` は、**それぞれ対で上げる**。
 - PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。
 
 ## アーキテクチャ
@@ -60,8 +58,8 @@ bun run lint         # Lint のみ（書き込みは lint:fix）
 - **エントリポイント**: `src/index.ts` が Hono アプリを `export default` する。Bun はこの default export（`fetch` ハンドラを持つオブジェクト）を自動で HTTP サーバとして起動するため、`Bun.serve()` の明示的な呼び出しやポート指定のコードは存在しない。ポートを変更する場合は `export default { port, fetch: app.fetch }` の形に切り替える。
 - **ランタイム API**: Node.js ではなく Bun のランタイム API（`Bun.file`、`bun:sqlite` など）を第一候補とする。`tsconfig.json` の `types: ["bun"]` により Bun のグローバル型のみが有効で、Node の型は入っていない。
 - **JSX**: `jsxImportSource: "hono/jsx"` が設定済み。UI を追加する場合は React ではなく Hono JSX（`hono/jsx`）を使う。React 用のパッケージを入れないこと。
-- **strict モード**: TypeScript は `strict: true`。`any` や非 null アサーション（`!`）に頼らず、型で表現する。Biome 側も `noExplicitAny` を error、`noNonNullAssertion` を warn として重ねている（テストファイルのみ `noExplicitAny` を無効化）。`import type` の使い分け（`useImportType`）と `node:` プレフィックス（`useNodejsImportProtocol`）も error。
-- **コードスタイル**: フォーマットの決定は `biome.json` に集約されている（シングルクォート、セミコロンあり、幅 120、インデント 2 スペース、trailing comma は es5）。手で整えず `bun run check:fix` に任せる。
+- **strict モード**: TypeScript は `strict: true`。`any` や非 null アサーション（`!`）に頼らず型で表現する。Biome も `noExplicitAny` / `noConsole` を error で重ねる（テストのみ `noExplicitAny` 無効）。
+- **コードスタイル**: フォーマットの決定は `biome.json` に集約。手で整えず `bun run check:fix` に任せる。
 
 ## ブランチ運用
 
