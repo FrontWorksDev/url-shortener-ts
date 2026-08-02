@@ -1,4 +1,8 @@
 pre-push:
+  parallel: true
   jobs:
     - name: TypeCheck
       run: bun run typecheck
+
+    - name: Biome Check
+      run: bun run check

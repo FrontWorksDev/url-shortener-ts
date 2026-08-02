@@ -1,0 +1,77 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedPackageJson": "on"
+      }
+    },
+    "enabled": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["src/**/*.{ts,tsx,js,jsx}", "*.{ts,js}", "*.json", "*.jsonc"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
+      "quoteProperties": "asNeeded",
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "es5"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "a11y": "off",
+      "complexity": {
+        "noUselessStringConcat": "error",
+        "useSimplifiedLogicExpression": "error"
+      },
+      "correctness": {
+        "noUnusedVariables": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error"
+      },
+      "preset": "recommended",
+      "style": {
+        "noNonNullAssertion": "error",
+        "useImportType": "error",
+        "useNamingConvention": "off",
+        "useNodejsImportProtocol": "error"
+      },
+      "suspicious": {
+        "noConsole": "error",
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
+  "vcs": {
+    "clientKind": "git",
+    "enabled": true,
+    "useIgnoreFile": true
+  }
+}
