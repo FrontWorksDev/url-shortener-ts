@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジック、永続化層、テストはいずれも未実装。一方で開発フロー側（型チェック・Lint / Format・Git フック・CI）は整備済み。
+Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジックと永続化層は未実装で、テストもゲートが通っているだけで中身は無い。一方で開発フロー側（型チェック・Lint / Format・テスト・Git フック・CI）は整備済み。
 
 ## コマンド
 
@@ -37,10 +37,11 @@ bun run check:fix    # 上記を自動修正まで行う
 
 ## 品質ゲート
 
-型チェック（`bun run typecheck`／CI 上のチェック名は `CI / Type Check`）と Biome（`bun run check`／`CI / Biome`）の 2 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 2 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
+型チェック（`bun run typecheck`／CI 上のチェック名は `Type Check`）、Biome（`bun run check`／`Biome`）、テスト（`bun test`／`Test`）の 3 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 3 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
 
 - CI だけ `check:ci`（`biome ci`）を使う。ルール・対象ファイル・終了コードは `check` と同じ。CI が落ちたら `bun run check` で再現し、`bun run check:fix` で直す。
-- **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。
+- **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。テストだけは `scripts` を持たず後ろ 2 箇所のみ（理由は README「Tests」節）。これを他のチェックの前例にしない。
+- **pre-push に載せるのは数秒で終わるチェックだけ。** Docker・ネットワーク・フィクスチャ DB が要るものは `ci.yml` の leg のみにする。
 - **`ci.yml` の `fail-fast: false` と `--ignore-scripts` を外さない。** 前者は片方のエラーで他方が cancel されるのを防ぎ、後者は CI で `prepare`（`lefthook install`）を走らせないため。
 - **CI のチェック名を変えたら `main` のブランチ保護の必須チェック設定も直す。** 古い名前を待ち続けてマージ不能になる。
 - **ワークフローにバージョンを直書きしない。** Bun は `.tool-versions`、Biome は `bun install` 経由の `package.json` が唯一の源。`setup-*` アクションでの別インストールは源が二重化するので避ける。
