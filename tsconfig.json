@@ -5,10 +5,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "module": "Preserve",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "noEmit": true,
-    "skipLibCheck": true
+    "noEmit": true
   }
 }
