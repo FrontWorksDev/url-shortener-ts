@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import app from './';
+import app from './index';
 
 describe('Example test', () => {
   test('GET /', async () => {
