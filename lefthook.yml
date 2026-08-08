@@ -6,3 +6,6 @@ pre-push:
 
     - name: Biome Check
       run: bun run check
+
+    - name: Test
+      run: bun test

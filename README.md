@@ -4,7 +4,7 @@ bun install
 ```
 
 This also installs Git hooks: the `prepare` script runs `lefthook install`, which sets up a
-`pre-push` hook that type checks before every push. No manual setup is needed.
+`pre-push` hook that runs every quality gate before a push. No manual setup is needed.
 
 To run:
 ```sh
@@ -43,7 +43,7 @@ bun run check src/index.ts
 
 | Where | What runs |
 | --- | --- |
-| `pre-push` hook (`lefthook.yml`) | `bun run check`, in parallel with `bun run typecheck` |
+| `pre-push` hook (`lefthook.yml`) | `bun run check`, in parallel with the other `pre-push` jobs |
 | CI (`.github/workflows/ci.yml`) | `bun run check:ci` |
 
 `check:ci` runs Biome's `ci` subcommand instead of `check`. Same rules over the same files, but it
@@ -51,23 +51,59 @@ refuses `--write` and it prints GitHub Actions annotations, so failures show up 
 diff. Both use the Biome pinned in `package.json`, so a CI failure reproduces locally with
 `bun run check` and is fixed with `bun run check:fix`.
 
+## Tests
+
+Tests run on Bun's built-in test runner (`bun:test`). There is nothing to install and nothing to
+pin: the runner ships with the Bun version already fixed in `.tool-versions`.
+
+```sh
+bun test                             # everything
+bun test src/index.test.ts           # one file
+bun test --test-name-pattern "解決"  # by test name
+bun test --watch                     # re-run on change
+```
+
+Test files sit next to the code they cover, named `*.test.ts`.
+
+Unlike `typecheck` and `check`, this gate has no `package.json` script — the hook and CI call
+`bun test` directly. Those two wrap a pinned binary (`tsc`, `biome`) whose flags must stay identical
+across three call sites, which is what the script exists to guarantee. `bun test` is the runtime
+itself, so there is no second tool it could resolve to and no flag set to keep in sync.
+
 ## CI
 
-Both gates live in one workflow, `.github/workflows/ci.yml`, as a two-leg matrix — they need the
-same Bun setup and the same `bun install`, and duplicating that across two files meant fixing every
-change twice.
+All three gates live in one workflow, `.github/workflows/ci.yml`, as a three-leg matrix — they need
+the same Bun setup and the same `bun install`, and duplicating that across three files meant fixing
+every change three times.
 
 | Check name | Command |
 | --- | --- |
-| `CI / Type Check` | `bun run typecheck` |
-| `CI / Biome` | `bun run check:ci` |
+| `Type Check` | `bun run typecheck` |
+| `Biome` | `bun run check:ci` |
+| `Test` | `bun test` |
 
-`fail-fast: false` matters here: the default cancels the second leg the moment the first fails, so a
-branch with both a type error and a lint error would only ever show you one of them per push.
+The check name is the matrix leg's `name`, and that is the string `main`'s branch protection has to
+match. Rename a leg and the old name stays required forever, waiting on a check that no longer runs.
 
-Adding a gate means adding a `matrix.include` entry alongside the `package.json` script and the
-`lefthook.yml` job. The legs do not share a runner, so this does not make CI faster — it removes the
-duplicated setup, nothing more.
+`fail-fast: false` matters here: the default cancels the remaining legs the moment one fails, so a
+branch with a type error, a lint error, and a failing test would only ever show you one of the three
+per push.
+
+Adding a gate means adding a `matrix.include` entry alongside the `lefthook.yml` job — plus a
+`package.json` script when the gate wraps a pinned binary rather than the runtime. The legs do not
+share a runner, so this does not make CI faster — it removes the duplicated setup, nothing more.
+
+### What belongs in `pre-push`
+
+Every gate above runs in both places today, and that is the default: a check CI enforces should fail
+on the laptop first, before a push spends a CI run and a review round-trip on something that was
+already knowable locally.
+
+The hook has a budget, though. `pre-push` is for checks that finish in seconds with nothing else
+running — type check, Biome, unit tests. Anything needing Docker, the network, or a fixture database
+(integration tests, load tests) is CI-only: its own `matrix.include` leg with no `lefthook.yml`
+counterpart. A hook slow enough to break concentration gets bypassed with `--no-verify`, and once
+that becomes reflex every gate in the hook is off, not just the slow one.
 
 ## Toolchain versions
 
@@ -96,3 +132,10 @@ read the file.
 CI reads the `bun` line from `.tool-versions`, installs that exact version, and then fails if the
 version it actually resolved differs. A missing or malformed `bun` line fails the job instead of
 silently falling back to the latest release.
+
+Pinning only pays off if a mismatch is actually checked, which is why `tsconfig.json` leaves
+`skipLibCheck` out. Skipping the `.d.ts` files of dependencies takes `bun run typecheck` from 0.28s
+to 0.07s — 0.2 seconds — and in exchange a conflict between `@types/bun` and a dependency's own
+types compiles green. That conflict is the thing bumping Bun and `@types/bun` together is meant to
+surface, so the check keeps its teeth. The option is absent on purpose, not by oversight; if a real
+conflict ever forces it in, name the offending dependency in a comment beside it.

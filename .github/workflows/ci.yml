@@ -26,6 +26,8 @@ jobs:
             command: bun run typecheck
           - name: Biome
             command: bun run check:ci
+          - name: Test
+            command: bun test
 
     steps:
       - name: Checkout
