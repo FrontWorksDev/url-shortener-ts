@@ -1,0 +1,32 @@
+name: Validate Codecov settings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - codecov.yml
+      - .github/workflows/validate-codecov.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - codecov.yml
+      - .github/workflows/validate-codecov.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Validate Codecov
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Codecov settings
+        run: curl --fail-with-body --silent --show-error --data-binary @codecov.yml https://codecov.io/validate

@@ -27,7 +27,8 @@ jobs:
           - name: Biome
             command: bun run check:ci
           - name: Test
-            command: bun test
+            command: bun run test:coverage
+            coverage: true
 
     steps:
       - name: Checkout
@@ -73,3 +74,12 @@ jobs:
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.command }}
+
+      - name: Send coverage report to Codecov
+        if: matrix.coverage
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          disable_search: true
+          files: ./coverage/lcov.info

@@ -6,6 +6,7 @@
     "check:fix": "biome check --write",
     "dev": "bun run --hot src/index.ts",
     "prepare": "lefthook install",
+    "test:coverage": "bun test --coverage",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
