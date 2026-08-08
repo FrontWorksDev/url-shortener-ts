@@ -47,6 +47,7 @@ bun run check:fix    # 上記を自動修正まで行う
 - **ワークフローにバージョンを直書きしない。** Bun は `.tool-versions`、Biome は `bun install` 経由の `package.json` が唯一の源。`setup-*` アクションでの別インストールは源が二重化するので避ける。
 - `bunx tsc` / `bunx biome` を直接叩かない。固定版を使うため `bun run` 経由にする。
 - Bun 本体（`.tool-versions`）と型定義（`package.json` の `@types/bun`）は**対で上げる**。片方だけだとローカルと CI で型チェック結果がずれる。
+- **`tsconfig.json` に `skipLibCheck` を入れない。** 速くなるのは実測 0.2 秒で、引き換えに `@types/bun` と依存の型定義の衝突が緑のまま通る（理由は README「Toolchain versions」節）。**入れなかったことは痕跡が残らない**ので、「推奨オプションなのに無い＝知らずに抜けている」と判断して足さないこと。
 - Biome（`package.json` の `@biomejs/biome`）と `biome.json` の `$schema` URL も**対で上げる**。`$schema` はエディタ補完用で実行には一切影響せず、古いバージョンでも存在しないバージョンでも Biome は何も言わずに exit 0 を返す。**ずれが実行時に検知される機会はどこにも無い**ので、「実行に影響しないなら後でいい」「間違っていればエラーになるはず」と判断せず、必ず同時に上げる。
 - Biome を上げた後に `Found an unknown key` で落ちたら、そのルールが `nursery` を卒業した合図。**キーを消して黙らせず、新しいグループへ移す**（消すと適用が静かに失われる）。
 - PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。

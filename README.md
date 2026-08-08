@@ -132,3 +132,10 @@ read the file.
 CI reads the `bun` line from `.tool-versions`, installs that exact version, and then fails if the
 version it actually resolved differs. A missing or malformed `bun` line fails the job instead of
 silently falling back to the latest release.
+
+Pinning only pays off if a mismatch is actually checked, which is why `tsconfig.json` leaves
+`skipLibCheck` out. Skipping the `.d.ts` files of dependencies takes `bun run typecheck` from 0.28s
+to 0.07s — 0.2 seconds — and in exchange a conflict between `@types/bun` and a dependency's own
+types compiles green. That conflict is the thing bumping Bun and `@types/bun` together is meant to
+surface, so the check keeps its teeth. The option is absent on purpose, not by oversight; if a real
+conflict ever forces it in, name the offending dependency in a comment beside it.
