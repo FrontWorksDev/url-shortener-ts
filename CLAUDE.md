@@ -21,6 +21,7 @@ bun test                             # 全テスト
 bun test src/shorten.test.ts         # ファイル単位
 bun test --test-name-pattern "解決"  # テスト名でフィルタ
 bun test --watch                     # ウォッチモード
+bun run test:coverage                # カバレッジ付き。CI の Test leg と同じ。設定は bunfig.toml の [test]
 ```
 
 パッケージマネージャは **Bun**（`bun.lock` を使用。npm / yarn / pnpm は使わない）。
@@ -37,17 +38,21 @@ bun run check:fix    # 上記を自動修正まで行う
 
 ## 品質ゲート
 
-型チェック（`bun run typecheck`／CI 上のチェック名は `Type Check`）、Biome（`bun run check`／`Biome`）、テスト（`bun test`／`Test`）の 3 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 3 leg）が同じコマンドを呼ぶ。構成の詳細は README.md の「CI」節を参照。
+型チェック（`bun run typecheck`／CI 上のチェック名は `Type Check`）、Biome（`bun run check`／`Biome`）、テスト（pre-push は `bun test`／CI は `bun run test:coverage`／`Test`）の 3 本。pre-push フック（`lefthook.yml`）と CI（`.github/workflows/ci.yml` の matrix 3 leg）が同じ検査を走らせる。構成の詳細は README.md の「CI」節を参照。
 
 - CI だけ `check:ci`（`biome ci`）を使う。ルール・対象ファイル・終了コードは `check` と同じ。CI が落ちたら `bun run check` で再現し、`bun run check:fix` で直す。
-- **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。テストだけは `scripts` を持たず後ろ 2 箇所のみ（理由は README「Tests」節）。これを他のチェックの前例にしない。
+- **チェックを追加するときは `package.json` の `scripts`・`lefthook.yml` のジョブ・`ci.yml` の `matrix.include` の 3 箇所に登録する。** `scripts` だけに置くと「あるのに走らない」チェックになる。ただしこれは「Bun のセットアップを共有し、毎 push 走らせる」チェックの既定形で、当てはまらないものは下の 2 本で判断する。
+- **`scripts` を作る基準は「複数の呼び出し口で揃えるべき固定版バイナリかフラグがあるか」。** `typecheck` / `check` は前者、`test:coverage` は `--coverage` を揃えるため。pre-push の `bun test` は引数なしでランタイム自身に解決されるので `scripts` を持たない（理由は README「Tests」節）。
+- **すべてのチェックが `ci.yml` の leg になるわけではない。** Bun のセットアップを共有しない・`paths` で絞りたい・外部サービスを叩く、のいずれかに当てはまるなら独立ワークフローにする（例: `validate-codecov.yml`）。`paths` はワークフロー単位のトリガーで leg 単位には効かず、CI 本体は毎 push 走らせる必要がある。
 - **pre-push に載せるのは数秒で終わるチェックだけ。** Docker・ネットワーク・フィクスチャ DB が要るものは `ci.yml` の leg のみにする。
 - **`ci.yml` の `fail-fast: false` と `--ignore-scripts` を外さない。** 前者は片方のエラーで他方が cancel されるのを防ぎ、後者は CI で `prepare`（`lefthook install`）を走らせないため。
-- **CI のチェック名を変えたら `main` のブランチ保護の必須チェック設定も直す。** 古い名前を待ち続けてマージ不能になる。
+- **ブランチ保護の必須チェックに入れてよいのは、毎 push 必ず走り、外部サービスに依存しないチェックだけ。** `paths` で絞ったワークフローを必須にすると、対象ファイルを触らない PR で skipped ではなく Expected のまま残り、マージ不能になる（`validate-codecov.yml` が該当するので必須にしない）。同じ理由で、**CI のチェック名を変えたらブランチ保護の設定も直す**。古い名前を待ち続けて詰まる。
 - **ワークフローにバージョンを直書きしない。** Bun は `.tool-versions`、Biome は `bun install` 経由の `package.json` が唯一の源。`setup-*` アクションでの別インストールは源が二重化するので避ける。
 - `bunx tsc` / `bunx biome` を直接叩かない。固定版を使うため `bun run` 経由にする。
 - Bun 本体（`.tool-versions`）と型定義（`package.json` の `@types/bun`）は**対で上げる**。片方だけだとローカルと CI で型チェック結果がずれる。
 - **`tsconfig.json` に `skipLibCheck` を入れない。** 速くなるのは実測 0.2 秒で、引き換えに `@types/bun` と依存の型定義の衝突が緑のまま通る（理由は README「Toolchain versions」節）。**入れなかったことは痕跡が残らない**ので、「推奨オプションなのに無い＝知らずに抜けている」と判断して足さないこと。
+- **`bunfig.toml` に `coverageThreshold` を入れない。** カバレッジの閾値は `codecov.yml` の status に一本化してある（理由は README「Where the threshold lives」節）。入れると強制の場所が移り、必須チェックでない Codecov status で済んでいた閾値割れが、必須チェックの `Test` を落としてマージを止めるようになる。`skipLibCheck` と同じく**入れなかったことは痕跡が残らない**ので、「閾値を強制したいならまずここ」と判断して足さないこと。
+- **`bunfig.toml` の `[test]` に `root` を入れない。** テストの探索が許可リストに変わり、`src/` の外に置いたテストが失敗ではなく「無かったこと」になる。`src/**` に揃える意図で書きたくなるが、Bun は `node_modules` を元から除外するので利得は無い。
 - Biome（`package.json` の `@biomejs/biome`）と `biome.json` の `$schema` URL も**対で上げる**。`$schema` はエディタ補完用で実行には一切影響せず、古いバージョンでも存在しないバージョンでも Biome は何も言わずに exit 0 を返す。**ずれが実行時に検知される機会はどこにも無い**ので、「実行に影響しないなら後でいい」「間違っていればエラーになるはず」と判断せず、必ず同時に上げる。
 - Biome を上げた後に `Found an unknown key` で落ちたら、そのルールが `nursery` を卒業した合図。**キーを消して黙らせず、新しいグループへ移す**（消すと適用が静かに失われる）。
 - PR タイトルは `.github/workflows/pr-title.yml` が Conventional Commits 形式を検査する。形式を外すとマージできない。
