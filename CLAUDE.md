@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Bun + Hono による URL 短縮サービス。**アプリコードはスキャフォールド直後の状態**で、`src/index.ts` に `GET /` のプレースホルダが 1 本あるだけ。短縮 URL の生成・解決ロジックと永続化層は未実装で、テストもゲートが通っているだけで中身は無い。一方で開発フロー側（型チェック・Lint / Format・テスト・Git フック・CI）は整備済み。
+Bun + Hono による URL 短縮サービス。永続化層のインターフェース（`EntryStore`、`src/store.ts`）とメモリ実装（`src/store.memory.ts`）は実装済みで、実装非依存の契約テスト（`src/store.contract.ts`）が検証している。一方、短縮 URL の生成・解決エンドポイントは未実装で、`src/index.ts` には `GET /` のプレースホルダが 1 本あるだけ。開発フロー側（型チェック・Lint / Format・テスト・Git フック・CI）は整備済み。
 
 ## コマンド
 
